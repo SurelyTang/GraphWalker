@@ -260,6 +260,18 @@ public:
 	 	ofs.close();
      }    
 
+	 bid_t choose_sub_Block(bid_t exec_block){//todo此次实际返回是排名第二的块，后续需要修改
+		wid_t maxw = 0, maxp = 0;
+		for(bid_t p = 0; p < nblocks; p++) {
+			if( p == exec_block ) continue;
+			if( maxw < walknum[p] ){
+				maxw = walknum[p];
+				maxp = p;
+			}
+	   	}
+		return maxp;
+     }
+
 };
 
 #endif

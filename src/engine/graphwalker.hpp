@@ -31,11 +31,17 @@ public:
     bid_t nblocks;  
     vid_t nvertices;      
     tid_t exec_threads;
-    vid_t* blocks;
+    vid_t* blocks;//一维数组，记录csr里面每个block的起始位置
     timeval start;
     
     /* Ｉn memory blocks */
     bid_t nmblocks; //number of in memory blocks
+    int num_pre_index;//每个顶点分配预采样数目
+    int max_pre_index;//每个顶点预采样数目上限，todo:改为和blocksize有关
+    vector<vector<int>> cold_index;//预采样的顶点，第一位int为顶点ID，第二个int为数
+    //每次取cold_index[num_pre_index-cold_index[i][1]],并更新cold_index[i][1]，变为0时更新index_in_cache，并成为供淘汰的
+    vector<bool> block_in_cache;//块是否在内存中
+    vector<bool> index_in_cache;//顶点是否在内存中被预采样，后续也可以改成unordered_map来快速找到cold_index位置
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -44,7 +50,8 @@ public:
 
     /* State */
     bid_t exec_block;
-    
+    bid_t pre_cache_block;
+
     /* Metrics */
     metrics &m;
     WalkManager *walk_manager;
@@ -183,7 +190,7 @@ public:
         //     exit(-1);
         // }
         m.start_time("z__g_loadSubGraph_read_begpos");
-        preada(beg_posf, beg_pos, (size_t)(*nverts+1)*sizeof(eid_t), (size_t)blocks[p]*sizeof(eid_t));        
+        preada(beg_posf, beg_pos, (size_t)(*nverts+1)*sizeof(eid_t), (size_t)blocks[p]*sizeof(eid_t)); //起始位置blocks[p]*sizeof(eid_t)  
         m.stop_time("z__g_loadSubGraph_read_begpos");
         /* read csr file */
         m.start_time("z__g_loadSubGraph_realloc_csr");
@@ -193,7 +200,7 @@ public:
         }
         m.stop_time("z__g_loadSubGraph_realloc_csr");     
         m.start_time("z__g_loadSubGraph_read_csr");
-        preada(csrf, csr, (*nedges)*sizeof(vid_t), beg_pos[0]*sizeof(vid_t));
+        preada(csrf, csr, (*nedges)*sizeof(vid_t), beg_pos[0]*sizeof(vid_t));//读取csr索引文件
         m.stop_time("z__g_loadSubGraph_read_csr");     
 
         m.stop_time("g_loadSubGraph");
@@ -248,6 +255,7 @@ public:
             for(wid_t i = 0; i < nwalks; i++ ){
                 WalkDataType walk = walk_manager->curwalks[i];
                 userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager );//, vertex_value);
+                //todo传进来的东西多一些，加上预缓存的东西
             }
         m.stop_time("5_exec_updates");
         // walk_manager->writeblockWalks(exec_block);
@@ -270,13 +278,17 @@ public:
             blockcount++;
             m.start_time("1_chooseBlock");
             exec_block = walk_manager->chooseBlock(prob);
+            pre_cache_block = walk_manager->choose_sub_Block(exec_block);//todo暂时这里没有再blockcount++后续更新
             m.stop_time("1_chooseBlock");
+            //todo这里预采样
             findSubGraph(exec_block, beg_pos, csr, &nverts, &nedges);
+
 
             /*load walks info*/
             // walk_manager->loadWalkPool(exec_block);
             wid_t nwalks; 
             nwalks = walk_manager->getCurrentWalks(exec_block);
+            //todo这里是否也有预采样操作的可能性，比如把pre_cache_block用过来
             
             // if(blockcount % (nblocks/100+1)==1)
             if(blockcount % (1024*1024*1024/nedges+1) == 1)
