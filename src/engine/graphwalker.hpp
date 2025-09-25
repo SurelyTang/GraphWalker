@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <omp.h>
 #include <vector>
+#include <unordered_map>
 #include <map>
 #include <sys/time.h>
 #include <sys/mman.h>
@@ -38,10 +39,14 @@ public:
     bid_t nmblocks; //number of in memory blocks
     int num_pre_index;//每个顶点分配预采样数目
     int max_pre_index;//每个顶点预采样数目上限，todo:改为和blocksize有关
-    vector<vector<int>> cold_index;//预采样的顶点，第一位int为顶点ID，第二个int为数
+    //std::vector<std::vector<int>> cold_index;//预采样的顶点，第一位int为顶点ID，第二个int为数
     //每次取cold_index[num_pre_index-cold_index[i][1]],并更新cold_index[i][1]，变为0时更新index_in_cache，并成为供淘汰的
-    vector<bool> block_in_cache;//块是否在内存中
-    vector<bool> index_in_cache;//顶点是否在内存中被预采样，后续也可以改成unordered_map来快速找到cold_index位置
+    //std::vector<bool> block_in_cache;//块是否在内存中
+    //std::vector<bool> index_in_cache;//顶点是否在内存中被预采样，后续也可以改成unordered_map来快速找到cold_index位置
+    std::unordered_map<vid_t, std::vector<int>> cache;
+    int cache_loop=3;
+    int cache_now=0;
+    int cache_size=5;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -54,6 +59,7 @@ public:
 
     /* Metrics */
     metrics &m;
+    std::vector<std::vector<int>> cache_log;
     WalkManager *walk_manager;
         
     void print_config() {
@@ -78,7 +84,7 @@ public:
      * @param nblocks number of shards
      * @param selective_scheduling if true, uses selective scheduling 
      */
-    graphwalker_engine(std::string _base_filename, unsigned long long _blocksize_kb, bid_t _nblocks, bid_t _nmblocks, metrics &_m) : base_filename(_base_filename), blocksize_kb(_blocksize_kb), nblocks(_nblocks), nmblocks(_nmblocks), m(_m) {
+    graphwalker_engine(std::string _base_filename, unsigned long long _blocksize_kb, bid_t _nblocks, bid_t _nmblocks, metrics &_m) : base_filename(_base_filename), blocksize_kb(_blocksize_kb), nblocks(_nblocks), nmblocks(_nmblocks), m(_m), cache_log(cache_loop) {
         // membudget_mb = get_option_int("membudget_mb", 1024);
         exec_threads = get_option_int("execthreads", omp_get_max_threads());
         omp_set_num_threads(exec_threads);
@@ -208,6 +214,7 @@ public:
 
     void findSubGraph(bid_t p, eid_t * &beg_pos, vid_t * &csr, vid_t *nverts, eid_t *nedges){
         m.start_time("2_findSubGraph");
+        //p为当前想读入的块是第几块
         if(inMemIndex[p] == nmblocks){//the block is not in memory
             bid_t swapin;
             if(cmblocks < nmblocks){
@@ -220,13 +227,37 @@ public:
                 if(beg_posbuf[swapin] != NULL) free(beg_posbuf[swapin]);
                     // munmap(beg_posbuf[swapin], sizeof(eid_t)*(blocks[minmwb+1] - blocks[minmwb] + 1));
             }
-            loadSubGraph(p, beg_posbuf[swapin], csrbuf[swapin], nverts, nedges);
+            loadSubGraph(p, beg_posbuf[swapin], csrbuf[swapin], nverts, nedges);//第swapin块buf存当前数据
             inMemIndex[p] = swapin;
         }else{
         }
         beg_pos = beg_posbuf[ inMemIndex[p] ];
         csr = csrbuf[ inMemIndex[p] ];
-        m.stop_time("2_findSubGraph");
+        //更新cache和cache_log（FIFO记录）
+        for(int i=0; i<cache_log[cache_now].size; i++)
+        {
+            cache.erase(cache_log[cache_now][i]);
+        }
+        cache_log[cache_now].clear();
+
+        //更新
+        // for (vid_t v = 0; v < *nverts; ++v) {
+        //     eid_t outd = beg_pos[v+1] - beg_pos[v];
+        //     if (outd > 0) {
+        //         std::vector<int> samples;
+        //         unsigned seed = (unsigned)(time(NULL) + v + p);
+        //         // 采样 cache_size 次
+        //         for (int k = 0; k < cache_size; ++k) {
+        //             eid_t pos = beg_pos[v] - beg_pos[0] + ((eid_t)rand_r(&seed)) % outd;
+        //             samples.push_back(csr[pos]);
+        //         }
+        //         cache[blocks[p] + v] = samples; // blocks[p]+v 是全局顶点ID
+        //         cache_log[cache_now].push_back(blocks[p] + v); // 记录本轮采样的顶点
+        //     }
+        // }
+
+        cache_now = (cache_now + 1) % cache_loop;
+            m.stop_time("2_findSubGraph");
     }
 
     bid_t swapOut(){
@@ -250,13 +281,17 @@ public:
     void exec_updates(RandomWalk &userprogram, wid_t nwalks, eid_t *&beg_pos, vid_t *&csr){ //, VertexDataType* vertex_value){
         // unsigned count = walk_manager->readblockWalks(exec_block);
         m.start_time("5_exec_updates");
+        hid_t cnt_hop=0;
         if(nwalks < 100) omp_set_num_threads(1);
         #pragma omp parallel for schedule(static)
             for(wid_t i = 0; i < nwalks; i++ ){
                 WalkDataType walk = walk_manager->curwalks[i];
-                userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager );//, vertex_value);
+                hid_t cnt1 = walk_manager->getHop(walk);
+                hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,cache);//, vertex_value);
+                cnt_hop += cnt2 - cnt1;
                 //todo传进来的东西多一些，加上预缓存的东西
             }
+        //logstream(LOG_INFO) <<"nwalks = "<<nwalks<< ";cnt_hop = " << cnt_hop << std::endl;
         m.stop_time("5_exec_updates");
         // walk_manager->writeblockWalks(exec_block);
     }

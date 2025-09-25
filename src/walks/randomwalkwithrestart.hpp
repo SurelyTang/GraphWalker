@@ -30,12 +30,12 @@ public:
      *  Walk update function.
      */
     //void updateByWalk(std::vector<graphchi_vertex<VertexDataType, EdgeDataType> > &vertices, vid_t vid, unsigned sub_interval_st, unsigned sub_interval_en, walkManager &walk_manager, graphchi_context &gcontext){
-    void updateByWalk(WalkDataType walk, unsigned walkid, unsigned exec_interval, Vertex *&vertices, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
+    hid_t updateByWalk(WalkDataType walk, unsigned walkid, unsigned exec_interval, Vertex *&vertices, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
             unsigned threadid = omp_get_thread_num();
             WalkDataType nowWalk = walk;
             vid_t sourId = walk_manager.getSourceId(nowWalk);
             vid_t dstId = walk_manager.getCurrentId(nowWalk) + intervals[exec_interval].first;
-            unsigned hop = walk_manager.getHop(nowWalk);
+            hid_t hop = walk_manager.getHop(nowWalk);
             unsigned seed = walkid+dstId+hop+(unsigned)time(NULL);
             while (dstId >= intervals[exec_interval].first && dstId <= intervals[exec_interval].second && hop < nsteps ){
                 updateInfo(sourId, dstId, threadid, hop);
@@ -54,6 +54,7 @@ public:
                 walk_manager.moveWalk(nowWalk, p, threadid, dstId - intervals[p].first);
                 walk_manager.setMinStep( p, hop );
             }
+            return hop;
     }   
 
 };
