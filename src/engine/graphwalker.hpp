@@ -233,31 +233,39 @@ public:
         }
         beg_pos = beg_posbuf[ inMemIndex[p] ];
         csr = csrbuf[ inMemIndex[p] ];
-        //更新cache和cache_log（FIFO记录）
-        for(int i=0; i<cache_log[cache_now].size; i++)
-        {
-            cache.erase(cache_log[cache_now][i]);
-        }
-        cache_log[cache_now].clear();
 
-        //更新
-        // for (vid_t v = 0; v < *nverts; ++v) {
-        //     eid_t outd = beg_pos[v+1] - beg_pos[v];
-        //     if (outd > 0) {
-        //         std::vector<int> samples;
-        //         unsigned seed = (unsigned)(time(NULL) + v + p);
-        //         // 采样 cache_size 次
-        //         for (int k = 0; k < cache_size; ++k) {
-        //             eid_t pos = beg_pos[v] - beg_pos[0] + ((eid_t)rand_r(&seed)) % outd;
-        //             samples.push_back(csr[pos]);
-        //         }
-        //         cache[blocks[p] + v] = samples; // blocks[p]+v 是全局顶点ID
-        //         cache_log[cache_now].push_back(blocks[p] + v); // 记录本轮采样的顶点
-        //     }
+        // 更新cache和cache_log（FIFO记录）
+        // for (size_t i = 0; i < cache_log[cache_now].size(); i++)
+        // {
+        //     if (cache.find(cache_log[cache_now][i]) == cache.end()) continue;
+        //     //logstream(LOG_INFO) << "cache" << cache_log[cache_now][i] << std::endl;
+        //     cache.erase(cache_log[cache_now][i]);
         // }
+        //cache_log[cache_now].clear();
+        // csr为最终数据
+        // beg_pos记录索引文件
+        
+        for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
+        {
+            vid_t local_v = v - blocks[p];
+            eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
+            if (outd > 0)
+            {
+                std::vector<int> samples;
+                unsigned seed = (unsigned)(time(NULL) + v + p);
+                // 采样 cache_size 次
+                for (int k = 0; k < cache_size; k++)
+                {
+                    eid_t pos = beg_pos[local_v] - beg_pos[0] + ((eid_t)rand_r(&seed)) % outd;
+                    samples.push_back(csr[pos]);
+                }
+                cache[v] = samples;                // v是全局顶点ID
+                cache_log[cache_now].push_back(v); // 记录本轮采样的顶点
+            }
+        }
 
         cache_now = (cache_now + 1) % cache_loop;
-            m.stop_time("2_findSubGraph");
+        m.stop_time("2_findSubGraph");
     }
 
     bid_t swapOut(){

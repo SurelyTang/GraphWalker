@@ -24,11 +24,30 @@ public:
         vid_t dstId = walk_manager.getCurrentId(nowWalk) + blocks[exec_block];
         hid_t hop = walk_manager.getHop(nowWalk);
         unsigned seed = (unsigned)(walkid+dstId+hop+(unsigned)time(NULL));
-        while (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1] && hop < L ){
+        while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) || cache.find(dstId)!=cache.end() ) && hop < L ){
+        //while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) ) && hop < L ){
             updateInfo(sourId, dstId, threadid, hop);
+            if(cache.find(dstId)!=cache.end() && !(dstId >= blocks[exec_block] && dstId < blocks[exec_block+1])){
+                bool use_cache = false;
+                for(size_t i=0;i<cache[dstId].size();i++){
+                    if(cache[dstId][i] != -1){
+                        vid_t tmp=dstId;
+                        dstId = cache[dstId][i];
+                        use_cache = true;
+                        cache[tmp][i] = -1;
+                        break;
+                    }
+                }
+                if(use_cache){
+                    hop++;
+                    nowWalk++;
+                    continue;
+                }
+                break;
+            }
             vid_t dstIdp = dstId - blocks[exec_block];
             eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
-            if (outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
+            if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
                 eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
                 dstId = csr[pos];
             }else{
