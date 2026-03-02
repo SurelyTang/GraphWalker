@@ -36,7 +36,7 @@ public:
     /**
      *  Walk update function.
      */
-    virtual void updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
+    virtual void updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ,std::vector<bool> &used_csr,std::vector<bool> &used_csr_v){ //, VertexDataType* vertex_value){
         logstream(LOG_ERROR) << "No definition of function : updateByWalk!" << std::endl;
     }
     

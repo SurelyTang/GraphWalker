@@ -27,7 +27,7 @@ public:
         L = _L;
     }
 
-    void updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
+    void updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager, std::vector<bool> &used_csr, std::vector<bool> &used_csr_v){ //, VertexDataType* vertex_value){
         // logstream(LOG_INFO) << "updateByWalk in randomwalkwithstop." << std::endl;
         tid_t threadid = omp_get_thread_num();
         WalkDataType nowWalk = walk;
@@ -42,6 +42,10 @@ public:
             updateInfo(sourId, dstId, threadid, hop);
             vid_t dstIdp = dstId - blocks[exec_block];
             eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
+            for(vid_t i=0; i<outd; i++){
+                used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
+            }
+            used_csr_v[dstIdp] = true;
             if (outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
                 eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
                 // logstream(LOG_DEBUG) << "dstId = " << dstId << ",  pos = " << pos << ", csr[pos] = " << csr[pos] << std::endl;

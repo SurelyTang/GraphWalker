@@ -133,6 +133,7 @@ int main(int argc, const char ** argv) {
     if(nmblocks > nblocks) nmblocks = nblocks;
 
     graphwalker_engine engine(filename, blocksize_kb,nblocks,nmblocks, m);
+    printf("blocksize_kb:%lld\n",blocksize_kb);
     engine.run(program, prob);
 
     program.visitfrequencies[0].getTop(20);

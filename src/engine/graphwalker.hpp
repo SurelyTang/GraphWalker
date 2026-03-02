@@ -130,6 +130,7 @@ public:
         
         if(inMemIndex != NULL) free(inMemIndex);
         if(blocks != NULL) free(blocks);
+        //todo这里添加缓存
 
         for(bid_t b = 0; b < cmblocks; b++){
             if(beg_posbuf[b] != NULL)   free(beg_posbuf[b]);
@@ -211,7 +212,7 @@ public:
     void findSubGraph(bid_t p, eid_t * &beg_pos, vid_t * &csr, vid_t *nverts, eid_t *nedges){
         m.start_time("2_findSubGraph");
         if(inMemIndex[p] == nmblocks){//the block is not in memory
-            // logstream(LOG_INFO) << "Load block " << p << " from disk" << std::endl;
+            //logstream(LOG_INFO) << "Load block " << p << " from disk" << std::endl;//输出日志，5.15尝试
             bid_t swapin;
             if(cmblocks < nmblocks){
                 swapin = cmblocks++;
@@ -221,12 +222,12 @@ public:
                 inMemIndex[minmwb] = nmblocks;
                 assert(swapin < nmblocks);
                 if(beg_posbuf[swapin] != NULL) free(beg_posbuf[swapin]);
-                    // munmap(beg_posbuf[swapin], sizeof(eid_t)*(blocks[minmwb+1] - blocks[minmwb] + 1));
+                // munmap(beg_posbuf[swapin], sizeof(eid_t)*(blocks[minmwb+1] - blocks[minmwb] + 1));
             }
             loadSubGraph(p, beg_posbuf[swapin], csrbuf[swapin], nverts, nedges);
             inMemIndex[p] = swapin;
         }else{
-            // logstream(LOG_INFO) << "Oh yeah! Block " << p << " is in memory!" << std::endl;
+            //logstream(LOG_INFO) << "Oh yeah! Block " << p << " is in memory!" << std::endl;//输出日志，5.15尝试
         }
         beg_pos = beg_posbuf[ inMemIndex[p] ];
         csr = csrbuf[ inMemIndex[p] ];
@@ -254,17 +255,30 @@ public:
         return blocks[nblocks];
     }
 
-    void exec_updates(RandomWalk &userprogram, wid_t nwalks, eid_t *&beg_pos, vid_t *&csr){ //, VertexDataType* vertex_value){
+    void exec_updates(RandomWalk &userprogram, wid_t nwalks, eid_t *&beg_pos, vid_t *&csr, vid_t nverts){ //, VertexDataType* vertex_value){
         // unsigned count = walk_manager->readblockWalks(exec_block);
         m.start_time("5_exec_updates");
+        size_t nedges = beg_pos[nverts] - beg_pos[0];
+        std::vector<bool> used_csr_v(nverts, false);
+        std::vector<bool> used_csr(nedges, false);
         if(nwalks < 100) omp_set_num_threads(1);
         #pragma omp parallel for schedule(static)
             for(wid_t i = 0; i < nwalks; i++ ){
                 // logstream(LOG_INFO) << "exec_block : " << exec_block << " , walk : " << i << " --> threads." << omp_get_thread_num() << std::endl;
                 WalkDataType walk = walk_manager->curwalks[i];
-                userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager );//, vertex_value);
+                userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr,used_csr_v);//, vertex_value);
             }
         // logstream(LOG_INFO) << "exec_updates end. Processsed walks with exec_threads = " << (int)exec_threads << std::endl;
+        int total_used_csr = 0;
+        int total_used_csr_v = 0;
+        for(size_t i=0; i<used_csr.size(); i++){
+            if(used_csr[i]) total_used_csr++;
+        }
+        for(size_t i=0; i<used_csr_v.size(); i++){
+            if(used_csr_v[i]) total_used_csr_v++;
+        }
+        //logstream(LOG_INFO) << "edge= " << (float)total_used_csr/used_csr.size() << " total_used_csr " << total_used_csr << " total_csr: " << used_csr.size() << std::endl;
+        logstream(LOG_INFO) << "v= " << (float)total_used_csr_v/used_csr_v.size() << " total_used_csr " << total_used_csr_v << " total_csr: " << used_csr_v.size() << std::endl;
         m.stop_time("5_exec_updates");
         // walk_manager->writeblockWalks(exec_block);
     }
@@ -295,14 +309,14 @@ public:
             nwalks = walk_manager->getCurrentWalks(exec_block);
             
             // if(blockcount % (nblocks/100+1)==1)
-            if(blockcount % (1024*1024*1024/nedges+1) == 1)
+            //if(blockcount % (1024*1024*1024/nedges+1) == 1)
             {
-                logstream(LOG_DEBUG) << runtime() << "s : blockcount: " << blockcount << std::endl;
-                logstream(LOG_INFO) << "nverts = " << nverts << ", nedges = " << nedges << std::endl;
-                logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
+               // logstream(LOG_DEBUG) << runtime() << "s : blockcount: " << blockcount << std::endl;
+                //logstream(LOG_INFO) << "nverts = " << nverts << ", nedges = " << nedges << std::endl;
+                //logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
             }
             
-            exec_updates(userprogram, nwalks, beg_pos, csr);
+            exec_updates(userprogram, nwalks, beg_pos, csr,nverts);
             walk_manager->updateWalkNum(exec_block);
             // userprogram.compUtilization(beg_pos[nverts] - beg_pos[0]);
 
