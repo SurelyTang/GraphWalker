@@ -261,12 +261,16 @@ public:
         size_t nedges = beg_pos[nverts] - beg_pos[0];
         std::vector<bool> used_csr_v(nverts, false);
         std::vector<bool> used_csr(nedges, false);
+        hid_t cnt_hop=0;
         if(nwalks < 100) omp_set_num_threads(1);
         #pragma omp parallel for schedule(static)
             for(wid_t i = 0; i < nwalks; i++ ){
                 // logstream(LOG_INFO) << "exec_block : " << exec_block << " , walk : " << i << " --> threads." << omp_get_thread_num() << std::endl;
                 WalkDataType walk = walk_manager->curwalks[i];
-                userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr,used_csr_v);//, vertex_value);
+                hid_t cnt1 = walk_manager->getHop(walk);
+                //hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,cache);//, vertex_value);
+                hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr,used_csr_v);//, vertex_value);
+                cnt_hop += cnt2 - cnt1;
             }
         // logstream(LOG_INFO) << "exec_updates end. Processsed walks with exec_threads = " << (int)exec_threads << std::endl;
         int total_used_csr = 0;
@@ -277,7 +281,7 @@ public:
         for(size_t i=0; i<used_csr_v.size(); i++){
             if(used_csr_v[i]) total_used_csr_v++;
         }
-        //logstream(LOG_INFO) << "edge= " << (float)total_used_csr/used_csr.size() << " total_used_csr " << total_used_csr << " total_csr: " << used_csr.size() << std::endl;
+        logstream(LOG_INFO) << "edge= " << (float)total_used_csr/used_csr.size() << " total_used_csr " << total_used_csr << " total_csr: " << used_csr.size() << " exec_block: " << exec_block << std::endl;
         logstream(LOG_INFO) << "v= " << (float)total_used_csr_v/used_csr_v.size() << " total_used_csr " << total_used_csr_v << " total_csr: " << used_csr_v.size() << std::endl;
         m.stop_time("5_exec_updates");
         // walk_manager->writeblockWalks(exec_block);

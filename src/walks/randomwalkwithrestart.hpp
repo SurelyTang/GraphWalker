@@ -30,7 +30,7 @@ public:
      *  Walk update function.
      */
     //void updateByWalk(std::vector<graphchi_vertex<VertexDataType, EdgeDataType> > &vertices, vid_t vid, unsigned sub_interval_st, unsigned sub_interval_en, walkManager &walk_manager, graphchi_context &gcontext){
-    void updateByWalk(WalkDataType walk, unsigned walkid, unsigned exec_interval, Vertex *&vertices, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
+     hid_t updateByWalk(WalkDataType walk, unsigned walkid, unsigned exec_interval, Vertex *&vertices, WalkManager &walk_manager ){ //, VertexDataType* vertex_value){
             unsigned threadid = omp_get_thread_num();
             WalkDataType nowWalk = walk;
             vid_t sourId = walk_manager.getSourceId(nowWalk);
@@ -60,7 +60,8 @@ public:
             //     ;//updateInfo(dstId);
             // }
             // std::cout << " move walk " << nowWalk << "  " << dstId << "  " << hop << std::endl;
-    }   
+            return hop+1;
+        }   
 
 };
 
