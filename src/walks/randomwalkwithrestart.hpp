@@ -60,7 +60,7 @@ public:
             //     ;//updateInfo(dstId);
             // }
             // std::cout << " move walk " << nowWalk << "  " << dstId << "  " << hop << std::endl;
-            return hop+1;
+            return hop;
         }   
 
 };

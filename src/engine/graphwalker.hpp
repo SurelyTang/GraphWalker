@@ -270,6 +270,7 @@ public:
                 hid_t cnt1 = walk_manager->getHop(walk);
                 //hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,cache);//, vertex_value);
                 hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr,used_csr_v);//, vertex_value);
+                //hid_t cnt3 = walk_manager->getHop(walk);
                 cnt_hop += cnt2 - cnt1;
             }
         // logstream(LOG_INFO) << "exec_updates end. Processsed walks with exec_threads = " << (int)exec_threads << std::endl;
@@ -283,6 +284,7 @@ public:
         }
         logstream(LOG_INFO) << "edge= " << (float)total_used_csr/used_csr.size() << " total_used_csr " << total_used_csr << " total_csr: " << used_csr.size() << " exec_block: " << exec_block << std::endl;
         logstream(LOG_INFO) << "v= " << (float)total_used_csr_v/used_csr_v.size() << " total_used_csr " << total_used_csr_v << " total_csr: " << used_csr_v.size() << std::endl;
+        logstream(LOG_INFO) << "hop = " << cnt_hop << std::endl;
         m.stop_time("5_exec_updates");
         // walk_manager->writeblockWalks(exec_block);
     }
@@ -317,12 +319,19 @@ public:
             {
                // logstream(LOG_DEBUG) << runtime() << "s : blockcount: " << blockcount << std::endl;
                 //logstream(LOG_INFO) << "nverts = " << nverts << ", nedges = " << nedges << std::endl;
-                //logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
+                logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
             }
             
             exec_updates(userprogram, nwalks, beg_pos, csr,nverts);
             walk_manager->updateWalkNum(exec_block);
             // userprogram.compUtilization(beg_pos[nverts] - beg_pos[0]);
+
+            std::ostringstream walknum_ss;
+            walknum_ss << "walknum = ";
+            for (bid_t i = 0; i < nblocks; i++) {
+                walknum_ss << "  " << walk_manager->walknum[i] << "  ";
+            }
+            logstream(LOG_INFO) << walknum_ss.str() << std::endl;
 
         } // For block loop
         m.stop_time("00_runtime");

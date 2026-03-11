@@ -32,6 +32,7 @@ public:
             updateInfo(sourId, dstId, threadid, hop);
             vid_t dstIdp = dstId - blocks[exec_block];
             eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
+            //IO利用率
             for(vid_t i=0; i<outd; i++){
                 used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
             }
@@ -58,7 +59,7 @@ public:
             walk_manager.setMinStep( p, hop );
             walk_manager.ismodified[p] = true;
         // }
-        return hop+1;
+        return hop;
     }
 
 };
