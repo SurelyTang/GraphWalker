@@ -17,7 +17,7 @@ class RandomWalkwithStop : public RandomWalk {
 
 public:  
 
-    hid_t updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ,std::unordered_map<unsigned int, std::vector<int> > &cache){ //, VertexDataType* vertex_value){
+    hid_t updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ,std::vector<bool> &used_csr, std::vector<bool> &used_csr_v,std::unordered_map<unsigned int, std::vector<int> > &cache){ //, VertexDataType* vertex_value){
         tid_t threadid = omp_get_thread_num();
         WalkDataType nowWalk = walk;
         vid_t sourId = walk_manager.getSourceId(nowWalk);
@@ -42,15 +42,26 @@ public:
                     hop++;
                     nowWalk++;
                     continue;
+                }else{
+                    //cache.erase(dstId);//多线程会出问题
                 }
                 break;
             }
+
             vid_t dstIdp = dstId - blocks[exec_block];
             eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
+            // //IO利用率
+            // for(vid_t i=0; i<outd; i++){
+            //     used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
+            // }
+            // used_csr_v[dstIdp] = true;
+            
+            //if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){//原始版本
             if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
                 eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
                 dstId = csr[pos];
             }else{
+                //return hop;//原始版本
                 if(outd == 0) {
                     return hop;
                 }
@@ -66,7 +77,7 @@ public:
             walk_manager.setMinStep( p, hop );
             walk_manager.ismodified[p] = true;
         }
-        return hop+1;
+        return hop;
     }
 
 };
