@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=1;
+    int cache_size=2;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -244,7 +244,7 @@ public:
         // cache_log[cache_now].clear();
         // csr为最终数据
         // beg_pos记录索引文件
-        if(p<=nblocks-5){ //最后一块不预采样
+        if(p<=nblocks-2){ //最后一块不预采样
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
             {
                 vid_t local_v = v - blocks[p];
@@ -261,7 +261,7 @@ public:
                         samples.push_back(csr[pos]);
                     }
                     cache[v] = samples;                // v是全局顶点ID
-                    cache_log[cache_now].push_back(v); // 记录本轮采样的顶点
+                    //cache_log[cache_now].push_back(v); // 记录本轮采样的顶点
                 }
             }
         }
