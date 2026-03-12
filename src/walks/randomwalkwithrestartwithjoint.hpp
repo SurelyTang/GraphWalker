@@ -40,22 +40,21 @@ public:
             //while (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1] ){
                 updateInfo(sourId, dstId, threadid, hop);
                 
-                if(cache.find(dstId)!=cache.end() && !(dstId >= blocks[exec_block] && dstId < blocks[exec_block+1])){
-                    bool use_cache = false;
-                    size_t tmp=cache[dstId][0];
-                    if(tmp < cache[dstId].size()){
-                        cache[dstId][0]++;
-                        dstId = cache[dstId][tmp];
-                        use_cache = true;
+                auto it = cache.find(dstId);
+                if (it != cache.end() && (dstId < blocks[exec_block] || dstId >= blocks[exec_block + 1])) {
+                    auto& cached_walks = it->second;
+                    // 【多线程安全改造】：原子性地获取并自增索引
+                    // 返回的是自增前的值，相当于原子的 size_t tmp = cached_walks[0]++;
+                    size_t tmp = __sync_fetch_and_add(&cached_walks[0], 1);
+                    
+                    if (tmp >= cached_walks.size()) {
+                        break; 
                     }
-                    if(use_cache){
-                        hop++;
-                        nowwalk++;
-                        continue;
-                    }else{
-                        //cache.erase(dstId);//多线程会出问题
-                    }
-                    break;
+
+                    dstId = cached_walks[tmp];
+                    hop++;
+                    nowwalk++;
+                    continue;
                 }
                 
 
