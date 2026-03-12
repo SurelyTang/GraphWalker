@@ -24,12 +24,14 @@ protected:
 public:
 	wid_t* walknum; //number of tptal walks of each block
 	wid_t* dwalknum; //number of disk walks of each block
+	wid_t* stepsum;
 	hid_t* minstep;
 	WalkBuffer **pwalks;
 
 	bid_t curp; //current block id
 	WalkDataType *curwalks; // all walks of current block
 	wid_t walksum;
+	wid_t first_walksum;
 
 	bool* ismodified;
 
@@ -41,11 +43,14 @@ public:
 
 		walknum = (wid_t*)malloc(nblocks*sizeof(wid_t));
 		dwalknum = (wid_t*)malloc(nblocks*sizeof(wid_t));
+		stepsum = (wid_t*)malloc(nblocks*sizeof(wid_t));
 		minstep = (hid_t*)malloc(nblocks*sizeof(hid_t));
 		memset(walknum, 0, nblocks*sizeof(wid_t));
 		memset(dwalknum, 0, nblocks*sizeof(wid_t));
+		memset(stepsum, 0, nblocks*sizeof(wid_t));
 		memset(minstep, 0xffff, nblocks*sizeof(hid_t));
 		walksum = 0;
+		first_walksum = 0;
 
 		rm_dir((base_filename+"_GraphWalker/walks/").c_str());
 		mkdir((base_filename+"_GraphWalker/walks/").c_str(), 0777);	
@@ -64,6 +69,7 @@ public:
 		if(walknum != NULL) free(walknum);
 		if(dwalknum != NULL) free(dwalknum);
 		if(minstep != NULL) free(minstep);
+		if(stepsum != NULL) free(stepsum);
 	}
 
 	WalkDataType encode( vid_t sourceId, vid_t currentId, hid_t hop ){
@@ -178,8 +184,12 @@ public:
 		m.start_time("z_w_clear_curwalks");
 		walksum += forwardWalks;
 		walksum -= walknum[p];
+		if (first_walksum == 0) {//只记第一次
+			first_walksum = walksum;
+		}
 		walknum[p] = 0;
 		minstep[p] = 0xffff;
+		stepsum[p] = 0;
 		free(curwalks);
 		curwalks = NULL;
 		m.stop_time("z_w_clear_curwalks");
@@ -188,6 +198,7 @@ public:
 	}
 
      void setMinStep(bid_t p, hid_t hop ){
+		stepsum[p] += hop;
 		if(minstep[p] > hop)
 		{
 			#pragma omp critical
@@ -233,13 +244,34 @@ public:
 		return maxp;
      }
 
+	bid_t blockWithMaxScore(){
+		float maxwt = 0;
+		bid_t maxp = 0;
+		//wid_t allsteps = 0;
+		// for(bid_t p = 0; p < nblocks; p++){
+		// 	allsteps += stepsum[p];
+		// }
+		//float avgstep = (float)allsteps/(walksum+1);
+		float score1 = (float)walksum/(first_walksum + 1); // Avoid division by zero
+		for(bid_t p = 0; p < nblocks; p++) {
+			float score = (1-score1)*walknum[p] + score1*(float)walknum[p]/minstep[p];
+			if(  maxwt < score ){
+				maxwt = score;
+				maxp = p;
+			}
+	   	}
+		return maxp;
+     }
+
      bid_t blockWithRandom(){
 		bid_t ranp = rand() % nblocks;
 		return ranp;
      }
 
 	bid_t chooseBlock(float prob){
-		// return blockWithMaxWeight();//////////////
+		//return blockWithMaxWeight();//////////////
+		//return blockWithMaxScore();
+		return blockWithMaxWalks();
 		float cc = ((float)rand())/RAND_MAX;
 		return blockWithMaxWalks();//只查找最多的，看看长尾问题
 		if( cc < prob ){
