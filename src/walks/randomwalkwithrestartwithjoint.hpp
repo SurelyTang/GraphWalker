@@ -39,16 +39,14 @@ public:
             while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) || cache.find(dstId)!=cache.end() ) && hop < L ){
             //while (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1] ){
                 updateInfo(sourId, dstId, threadid, hop);
+                
                 if(cache.find(dstId)!=cache.end() && !(dstId >= blocks[exec_block] && dstId < blocks[exec_block+1])){
                     bool use_cache = false;
-                    for(size_t i=0;i<cache[dstId].size();i++){
-                        if(cache[dstId][i] != -1){
-                            vid_t tmp=dstId;
-                            dstId = cache[dstId][i];
-                            use_cache = true;
-                            cache[tmp][i] = -1;
-                            break;
-                        }
+                    size_t tmp=cache[dstId][0];
+                    if(tmp < cache[dstId].size()){
+                        cache[dstId][0]++;
+                        dstId = cache[dstId][tmp];
+                        use_cache = true;
                     }
                     if(use_cache){
                         hop++;
@@ -59,6 +57,7 @@ public:
                     }
                     break;
                 }
+                
 
                 vid_t dstIdp = dstId - blocks[exec_block];
                 eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];

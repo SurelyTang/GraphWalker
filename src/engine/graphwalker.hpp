@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=1;
+    int cache_size=6;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -244,7 +244,7 @@ public:
         // cache_log[cache_now].clear();
         // csr为最终数据
         // beg_pos记录索引文件
-        if(p>0.5/88){
+        if(p!=nblocks-1){ //最后一块不预采样
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
             {
                 vid_t local_v = v - blocks[p];
@@ -252,6 +252,7 @@ public:
                 if (outd > 0)
                 {
                     std::vector<int> samples;
+                    samples.push_back(1); //第一位记录已经采样的数目
                     unsigned seed = (unsigned)(time(NULL) + v + p);
                     // 采样 cache_size 次
                     for (int k = 0; k < cache_size; k++)
@@ -338,7 +339,7 @@ public:
             blockcount++;
             m.start_time("1_chooseBlock");
             exec_block = walk_manager->chooseBlock(prob);
-            pre_cache_block = walk_manager->choose_sub_Block(exec_block);//todo暂时这里没有再blockcount++后续更新
+            //pre_cache_block = walk_manager->choose_sub_Block(exec_block);//todo暂时这里没有再blockcount++后续更新
             m.stop_time("1_chooseBlock");
             //todo这里预采样
             findSubGraph(exec_block, beg_pos, csr, &nverts, &nedges);
@@ -355,10 +356,10 @@ public:
             // {
             //     logstream(LOG_DEBUG) << runtime() << "s : blockcount: " << blockcount << std::endl;
             //     logstream(LOG_INFO) << "nverts = " << nverts << ", nedges = " << nedges << std::endl;
-            if((visited[exec_block] == 0 || exec_block<88*0.8)){
-                logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
-                visited[exec_block] = 1;
-            }
+            // if((visited[exec_block] == 0 || exec_block<88*0.8)){
+                 logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
+            //     visited[exec_block] = 1;
+            // }
             //logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
             // }
             exec_updates(userprogram, nwalks, beg_pos, csr,nverts);
