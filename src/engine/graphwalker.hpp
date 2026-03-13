@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=6;
+    int cache_size=15;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -234,7 +234,7 @@ public:
         beg_pos = beg_posbuf[ inMemIndex[p] ];
         csr = csrbuf[ inMemIndex[p] ];
 
-        // 更新cache和cache_log（FIFO记录）
+        // //更新cache和cache_log（FIFO记录）
         // for (size_t i = 0; i < cache_log[cache_now].size(); i++)
         // {
         //     if (cache.find(cache_log[cache_now][i]) == cache.end()) continue;
@@ -244,9 +244,8 @@ public:
         // cache_log[cache_now].clear();
         // csr为最终数据
         // beg_pos记录索引文件
-        if(p<nblocks-2){ //最后一块不预采样
-            // 1. 【核心修复】将种子初始化移出循环！
-            // rand_r 自身会维护和更新 seed 的状态，只需要在外部初始化一次即可。
+        if(p<nblocks*0.95){ //最后一块不预采样
+        //if(1){ //最后一块不预采样
             unsigned seed = (unsigned)(time(NULL) + p); 
 
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++) {
@@ -256,7 +255,7 @@ public:
                 eid_t start_pos = beg_pos[local_v] - beg_pos[0];
                 eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
                 
-                if (outd > 0) {
+                if (outd > 2) {
                     // 3. 【内存优化】提前 reserve 容量，消除动态扩容开销
                     std::vector<int> samples;
                     samples.reserve(cache_size + 1); 
@@ -265,7 +264,7 @@ public:
                     // 采样 cache_size 次
                     for (int k = 0; k < cache_size; k++) {
                         // rand_r 性能极高，配合提取出的 start_pos，将计算降到最低
-                        eid_t pos = start_pos + (rand_r(&seed) % outd);
+                        eid_t pos = start_pos + ((eid_t)rand_r(&seed))%outd;
                         samples.push_back(csr[pos]);
                     }
                     
