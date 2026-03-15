@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=15;
+    int cache_size=20;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -234,7 +234,7 @@ public:
         beg_pos = beg_posbuf[ inMemIndex[p] ];
         csr = csrbuf[ inMemIndex[p] ];
 
-        // //更新cache和cache_log（FIFO记录）
+        // 更新cache和cache_log（FIFO记录）
         // for (size_t i = 0; i < cache_log[cache_now].size(); i++)
         // {
         //     if (cache.find(cache_log[cache_now][i]) == cache.end()) continue;
@@ -245,33 +245,25 @@ public:
         // csr为最终数据
         // beg_pos记录索引文件
         if(p<nblocks*0.95){ //最后一块不预采样
-        //if(1){ //最后一块不预采样
-            unsigned seed = (unsigned)(time(NULL) + p); 
-
-            for (vid_t v = blocks[p]; v < blocks[p + 1]; v++) {
+            unsigned seed = (unsigned)(time(NULL) + p);
+            for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
+            {
                 vid_t local_v = v - blocks[p];
-                
-                // 2. 【性能优化】提取循环不变量，避免在采样循环中重复加减
-                eid_t start_pos = beg_pos[local_v] - beg_pos[0];
                 eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
-                
-                if (outd > 2) {
-                    // 3. 【内存优化】提前 reserve 容量，消除动态扩容开销
+                eid_t start_pos = beg_pos[local_v] - beg_pos[0];
+                if (outd > 4)
+                {
                     std::vector<int> samples;
-                    samples.reserve(cache_size + 1); 
-                    samples.push_back(1); // 第一位记录已经采样的数目
+                    samples.reserve(cache_size + 1);
+                    samples.push_back(1); //第一位记录已经采样的数目
                     
                     // 采样 cache_size 次
-                    for (int k = 0; k < cache_size; k++) {
-                        // rand_r 性能极高，配合提取出的 start_pos，将计算降到最低
-                        eid_t pos = start_pos + ((eid_t)rand_r(&seed))%outd;
+                    for (int k = 0; k < cache_size; k++)
+                    {
+                        eid_t pos = start_pos + ((eid_t)rand_r(&seed)) % outd;
                         samples.push_back(csr[pos]);
                     }
-                    
-                    // 4. 【内存优化】使用 std::move 转移所有权，彻底消除 Vector 的深拷贝
                     cache[v] = std::move(samples); 
-                    
-                    // cache_log[cache_now].push_back(v);
                 }
             }
         }

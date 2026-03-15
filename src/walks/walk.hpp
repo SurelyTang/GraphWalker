@@ -227,6 +227,7 @@ public:
 				minp = p;
 			}
 	   	}
+		//logstream(LOG_DEBUG) << "blockWithMinStep: minstep = " << mins << ", minp = " << minp << ", walknum[minp] = " << walknum[minp] << std::endl;
 		if(walknum[minp] > 0)
 			return minp;
 		return blockWithMaxWalks();
@@ -270,13 +271,16 @@ public:
 
 	bid_t chooseBlock(float prob){
 		//return blockWithMaxWeight();//////////////
+		//return blockWithMinStep();
 		float score1 = (float)walksum/(first_walksum + 1);
 		//logstream(LOG_DEBUG) << "score1 = " << score1 << std::endl;
-		if (score1 > 0.75){
+		if (score1 > 0.95){
 			return blockWithMaxWalks();
-		}else{
+		}else if (score1 > 0.5){
+			//return blockWithMinStep();
 			return blockWithMaxWeight();
 		}
+		return blockWithMinStep();
 
 		return blockWithMaxScore();
 		float cc = ((float)rand())/RAND_MAX;
