@@ -61,6 +61,7 @@ public:
     }
 
 	void updateInfo(vid_t s, vid_t dstId, tid_t threadid, hid_t hop){
+        if(dstId >= N) return;
         assert(dstId < N);
         vertex_value[dstId]++; // #pragma omp critical
     }

@@ -251,7 +251,7 @@ public:
                 vid_t local_v = v - blocks[p];
                 eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
                 eid_t start_pos = beg_pos[local_v] - beg_pos[0];
-                if (outd > 4)
+                if (outd > 2)
                 {
                     std::vector<int> samples;
                     samples.reserve(cache_size + 1);
