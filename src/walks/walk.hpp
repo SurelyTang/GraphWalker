@@ -271,6 +271,7 @@ public:
 	bid_t chooseBlock(float prob){
 		//return blockWithMaxWeight();//////////////
 		//return blockWithMaxScore();
+		return blockWithMinStep();
 		return blockWithMaxWalks();
 		float cc = ((float)rand())/RAND_MAX;
 		return blockWithMaxWalks();//只查找最多的，看看长尾问题

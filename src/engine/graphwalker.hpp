@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=5;
+    int cache_size=3;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
