@@ -183,10 +183,11 @@ public:
 		
 		m.start_time("z_w_clear_curwalks");
 		walksum += forwardWalks;
-		if(walksum >= walknum[p])
-			walksum -= walknum[p];
-		else
-			walksum = 0;
+		walksum -= walknum[p];
+		// if(walksum >= walknum[p])
+		// 	walksum -= walknum[p];
+		// else
+		// 	walksum = 0;
 		if (first_walksum == 0) {//只记第一次
 			first_walksum = walksum;
 		}
@@ -277,7 +278,7 @@ public:
 		//return blockWithMinStep();
 		float score1 = (float)walksum/(first_walksum + 1);
 		//logstream(LOG_DEBUG) << "score1 = " << score1 << std::endl;
-		if (score1 > 0.95){
+		if (score1 > 0.55){
 			return blockWithMaxWalks();
 		}else if (score1 > 0.05){
 			//return blockWithMinStep();

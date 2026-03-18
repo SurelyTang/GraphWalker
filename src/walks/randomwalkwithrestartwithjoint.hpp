@@ -65,7 +65,7 @@ public:
                 //     used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
                 // }
                 // used_csr_v[dstIdp] = true;
-                if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
+                if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
                 //if (outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
                     eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
                     dstId = csr[pos];

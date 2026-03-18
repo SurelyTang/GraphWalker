@@ -77,15 +77,16 @@ public:
             // used_csr_v[dstIdp] = true;
             
             //if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){//原始版本
-            if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0 ){
+            if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
                 eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
                 dstId = csr[pos];
             }else{
+                dstId = sourId;
                 //return hop;//原始版本
-                if(outd == 0) {
-                    return hop;
-                }
-                break;
+                // if(outd == 0) {
+                //     return hop;
+                // }
+                // break;
             }
             hop++;
             nowWalk++;

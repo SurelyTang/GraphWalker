@@ -244,7 +244,7 @@ public:
         // cache_log[cache_now].clear();
         // csr为最终数据
         // beg_pos记录索引文件
-        if(p<nblocks*0.95){ //最后一块不预采样
+        if(p<nblocks*0.95 && cache_size>0){ //最后一块不预采样
             unsigned seed = (unsigned)(time(NULL) + p);
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
             {
@@ -298,13 +298,34 @@ public:
         std::vector<bool> used_csr_v(1, false);
         std::vector<bool> used_csr(1, false);
         hid_t cnt_hop=0;
+        hid_t sum_walk_hop = 0;
+        for(wid_t i = 0; i < nwalks; i++ ){
+            WalkDataType walk = walk_manager->curwalks[i];
+            sum_walk_hop += walk_manager->getHop(walk);
+        }
+        double avg_walk_hop = (double)sum_walk_hop / nwalks;
         if(nwalks < 100) omp_set_num_threads(1);
         #pragma omp parallel for schedule(static)
             for(wid_t i = 0; i < nwalks; i++ ){
                 WalkDataType walk = walk_manager->curwalks[i];
                 hid_t cnt1 = walk_manager->getHop(walk);
-                hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
-                cnt_hop += cnt2 - cnt1;
+                if(cnt1 < avg_walk_hop*0.5)
+                {
+                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
+                    cnt_hop += cnt2 - cnt1;  
+                } 
+                //todo传进来的东西多一些，加上预缓存的东西
+            }
+        if(nwalks < 100) omp_set_num_threads(1);
+        #pragma omp parallel for schedule(static)
+            for(wid_t i = 0; i < nwalks; i++ ){
+                WalkDataType walk = walk_manager->curwalks[i];
+                hid_t cnt1 = walk_manager->getHop(walk);
+                if(cnt1 >= avg_walk_hop*0.5)
+                {
+                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
+                    cnt_hop += cnt2 - cnt1;  
+                } 
                 //todo传进来的东西多一些，加上预缓存的东西
             }
             // logstream(LOG_INFO) << "exec_updates end. Processsed walks with exec_threads = " << (int)exec_threads << std::endl;
