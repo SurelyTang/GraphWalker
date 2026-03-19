@@ -252,8 +252,8 @@ public:
         // beg_pos记录索引文件
 
         //原版
-         if(p>nblocks*0.85 && p<nblocks && cache_size>0){ //静态缓存模拟
-        //if(p<nblocks*0.95 && cache_size>0){ //最后一块不预采样
+        //if(p>nblocks*0.85 && p<nblocks && cache_size>0){ //静态缓存模拟
+        if(p<nblocks*0.95 && cache_size>0){ //最后一块不预采样
             unsigned seed = (unsigned)(time(NULL) + p);
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
             {
@@ -261,7 +261,7 @@ public:
                 eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
                 eid_t start_pos = beg_pos[local_v] - beg_pos[0];
                 //if (outd > 2)
-                if (outd > 0)
+                if (outd > 2)
                 {
                     std::vector<int> samples;
                     samples.reserve(cache_size + 1);
