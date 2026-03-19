@@ -46,7 +46,7 @@ public:
     std::unordered_map<vid_t, std::vector<int>> cache;
     int cache_loop=3;
     int cache_now=0;
-    int cache_size=20;
+    int cache_size=8;
     vid_t **csrbuf;
     eid_t **beg_posbuf;
     bid_t cmblocks; //current number of in memory blocks
@@ -177,6 +177,8 @@ public:
         }
         brf.close();
     }
+    
+
 
     void loadSubGraph(bid_t p, eid_t * &beg_pos, vid_t * &csr, vid_t *nverts, eid_t *nedges){
         m.start_time("g_loadSubGraph");
@@ -212,6 +214,10 @@ public:
         m.stop_time("g_loadSubGraph");
     }
 
+    void loadLastGraph(bid_t p, eid_t * &beg_pos, vid_t * &csr, vid_t *nverts, eid_t *nedges){
+        loadSubGraph(p, beg_pos, csr, nverts, nedges);//第swapin块buf存当前数据
+    }
+
     void findSubGraph(bid_t p, eid_t * &beg_pos, vid_t * &csr, vid_t *nverts, eid_t *nedges){
         m.start_time("2_findSubGraph");
         //p为当前想读入的块是第几块
@@ -244,14 +250,18 @@ public:
         // cache_log[cache_now].clear();
         // csr为最终数据
         // beg_pos记录索引文件
-        if(p<nblocks*0.95 && cache_size>0){ //最后一块不预采样
+
+        //原版
+         if(p>nblocks*0.85 && p<nblocks && cache_size>0){ //静态缓存模拟
+        //if(p<nblocks*0.95 && cache_size>0){ //最后一块不预采样
             unsigned seed = (unsigned)(time(NULL) + p);
             for (vid_t v = blocks[p]; v < blocks[p + 1]; v++)
             {
                 vid_t local_v = v - blocks[p];
                 eid_t outd = beg_pos[local_v + 1] - beg_pos[local_v];
                 eid_t start_pos = beg_pos[local_v] - beg_pos[0];
-                if (outd > 2)
+                //if (outd > 2)
+                if (outd > 0)
                 {
                     std::vector<int> samples;
                     samples.reserve(cache_size + 1);
@@ -267,6 +277,8 @@ public:
                 }
             }
         }
+
+
         cache_now = (cache_now + 1) % cache_loop;
         m.stop_time("2_findSubGraph");
     }
@@ -289,7 +301,7 @@ public:
         return blocks[nblocks];
     }
 
-    void exec_updates(RandomWalk &userprogram, wid_t nwalks, eid_t *&beg_pos, vid_t *&csr,vid_t nverts){ //, VertexDataType* vertex_value){
+    void exec_updates(RandomWalk &userprogram, wid_t nwalks, eid_t *&beg_pos, vid_t *&csr,vid_t nverts, eid_t *&beg_static, vid_t *&csr_static){ //, VertexDataType* vertex_value){
         // unsigned count = walk_manager->readblockWalks(exec_block);
         m.start_time("5_exec_updates");
         // size_t nedges = beg_pos[nverts] - beg_pos[0];
@@ -298,6 +310,16 @@ public:
         std::vector<bool> used_csr_v(1, false);
         std::vector<bool> used_csr(1, false);
         hid_t cnt_hop=0;
+        // if(nwalks < 100) omp_set_num_threads(1);
+        // #pragma omp parallel for schedule(static)
+        //     for(wid_t i = 0; i < nwalks; i++ ){
+        //         WalkDataType walk = walk_manager->curwalks[i];
+        //         hid_t cnt1 = walk_manager->getHop(walk);
+        //         hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
+        //         cnt_hop += cnt2 - cnt1;  
+        //         //todo传进来的东西多一些，加上预缓存的东西
+        //     }
+
         hid_t sum_walk_hop = 0;
         for(wid_t i = 0; i < nwalks; i++ ){
             WalkDataType walk = walk_manager->curwalks[i];
@@ -309,9 +331,9 @@ public:
             for(wid_t i = 0; i < nwalks; i++ ){
                 WalkDataType walk = walk_manager->curwalks[i];
                 hid_t cnt1 = walk_manager->getHop(walk);
-                if(cnt1 < avg_walk_hop*0.5)
+                if(cnt1 < avg_walk_hop)
                 {
-                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
+                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache, beg_static, csr_static);//, vertex_value);
                     cnt_hop += cnt2 - cnt1;  
                 } 
                 //todo传进来的东西多一些，加上预缓存的东西
@@ -321,13 +343,15 @@ public:
             for(wid_t i = 0; i < nwalks; i++ ){
                 WalkDataType walk = walk_manager->curwalks[i];
                 hid_t cnt1 = walk_manager->getHop(walk);
-                if(cnt1 >= avg_walk_hop*0.5)
+                if(cnt1 >= avg_walk_hop)
                 {
-                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache);//, vertex_value);
+                    hid_t cnt2=userprogram.updateByWalk(walk, i, exec_block, beg_pos, csr, *walk_manager ,used_csr, used_csr_v, cache, beg_static, csr_static);//, vertex_value);
                     cnt_hop += cnt2 - cnt1;  
                 } 
                 //todo传进来的东西多一些，加上预缓存的东西
             }
+
+        
             // logstream(LOG_INFO) << "exec_updates end. Processsed walks with exec_threads = " << (int)exec_threads << std::endl;
         // int total_used_csr = 0;
         // int total_used_csr_v = 0;
@@ -354,6 +378,16 @@ public:
         gettimeofday(&start, NULL);
         m.start_time("00_runtime");
         std::vector<int> visited(nblocks,0);
+
+        //提前处理这块的walks，后续如果要预采样就直接用它来采样
+        vid_t nverts_static = 0;
+        vid_t *csr_static = (vid_t*)malloc((size_t)blocksize_kb * 1024);
+        eid_t nedges_static = 0;
+        eid_t *beg_static = NULL;
+        loadLastGraph(nblocks-1, beg_static, csr_static, &nverts_static, &nedges_static);//预加载最后一个块，记录它的csr和beg_pos，后续如果要预采样就直接用它来采样
+        //wid_t nwalks_static = walk_manager->getCurrentWalks(nblocks-1);
+        //exec_updates(userprogram, nwalks_static, beg_static, csr_static,nverts_static,beg_static, csr_static);
+
         vid_t nverts, *csr;
         eid_t nedges, *beg_pos;
         /*loadOnDemand -- block loop */
@@ -385,7 +419,7 @@ public:
             // }
             //logstream(LOG_INFO) << "walksum = " << walk_manager->walksum << ", nwalks[" << exec_block << "] = " << nwalks << std::endl;
             // }
-            exec_updates(userprogram, nwalks, beg_pos, csr,nverts);
+            exec_updates(userprogram, nwalks, beg_pos, csr,nverts,beg_static, csr_static);
             walk_manager->updateWalkNum(exec_block);
             // userprogram.compUtilization(beg_pos[nverts] - beg_pos[0]);
 

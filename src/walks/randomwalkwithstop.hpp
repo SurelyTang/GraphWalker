@@ -17,14 +17,16 @@ class RandomWalkwithStop : public RandomWalk {
 
 public:  
 
-    hid_t updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ,std::vector<bool> &used_csr, std::vector<bool> &used_csr_v,std::unordered_map<unsigned int, std::vector<int> > &cache){ //, VertexDataType* vertex_value){
+    hid_t updateByWalk(WalkDataType walk, wid_t walkid, bid_t exec_block, eid_t *&beg_pos, vid_t *&csr, WalkManager &walk_manager ,
+        std::vector<bool> &used_csr, std::vector<bool> &used_csr_v,std::unordered_map<unsigned int, std::vector<int> > &cache, eid_t *&beg_static, vid_t *&csr_static){ //, VertexDataType* vertex_value){
         tid_t threadid = omp_get_thread_num();
         WalkDataType nowWalk = walk;
         vid_t sourId = walk_manager.getSourceId(nowWalk);
         vid_t dstId = walk_manager.getCurrentId(nowWalk) + blocks[exec_block];
         hid_t hop = walk_manager.getHop(nowWalk);
         unsigned seed = (unsigned)(walkid+dstId+hop+(unsigned)time(NULL));
-        while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) || cache.find(dstId)!=cache.end() ) && hop < L ){
+        while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) || cache.find(dstId)!=cache.end() 
+        || (dstId >= blocks[nblocks-1] && dstId < blocks[nblocks]) ) && hop < L ){
         //while (( (dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) ) && hop < L ){
             updateInfo(sourId, dstId, threadid, hop);
 
@@ -67,26 +69,37 @@ public:
             //     }
             //     break;
             // }
-
-            vid_t dstIdp = dstId - blocks[exec_block];
-            eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
-            // //IO利用率
-            // for(vid_t i=0; i<outd; i++){
-            //     used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
-            // }
-            // used_csr_v[dstIdp] = true;
-            
-            //if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){//原始版本
-            if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
-                eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
-                dstId = csr[pos];
+            if(dstId >= blocks[nblocks-1] && dstId < blocks[nblocks]){//静态缓存最后一块
+                vid_t dstIdp = dstId - blocks[nblocks-1];
+                eid_t outd = beg_static[dstIdp+1] - beg_static[dstIdp];
+                //logstream(LOG_DEBUG) << "dstId = " << dstId << ", outd = " << outd << std::endl;
+                if((dstId >= blocks[nblocks-1] && dstId < blocks[nblocks]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
+                    eid_t pos = beg_static[dstIdp] - beg_static[0] + ((eid_t)rand_r(&seed))%outd;
+                    dstId = csr_static[pos];
+                }else{
+                    dstId = sourId;
+                }
             }else{
-                dstId = sourId;
-                //return hop;//原始版本
-                // if(outd == 0) {
-                //     return hop;
+                vid_t dstIdp = dstId - blocks[exec_block];
+                eid_t outd = beg_pos[dstIdp+1] - beg_pos[dstIdp];
+                // //IO利用率
+                // for(vid_t i=0; i<outd; i++){
+                //     used_csr[beg_pos[dstIdp]-beg_pos[0]+i] = true;
                 // }
-                // break;
+                // used_csr_v[dstIdp] = true;
+                
+                //if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){//原始版本
+                if ((dstId >= blocks[exec_block] && dstId < blocks[exec_block+1]) && outd > 0 && (float)rand_r(&seed)/RAND_MAX > 0.15 ){
+                    eid_t pos = beg_pos[dstIdp] - beg_pos[0] + ((eid_t)rand_r(&seed))%outd;
+                    dstId = csr[pos];
+                }else{
+                    dstId = sourId;
+                    //return hop;//原始版本
+                    // if(outd == 0) {
+                    //     return hop;
+                    // }
+                    // break;
+                }
             }
             hop++;
             nowWalk++;
